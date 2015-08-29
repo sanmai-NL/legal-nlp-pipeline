@@ -1,0 +1,53 @@
+
+
+=== Verdicts
+
+All judgments contain at least one 'niet bewezen' formality:
+
+[source,Fish]
+----
+fgrep -L -R 'niet bewezen' extracted/*.bsl.txt | sort
+----
+
+Bewijs:
+
+[source,XPath]
+----
+/alpino_ds//node[@pos="verb" and @rel="hd" and @sense="bewijs"]/preceding-sibling::node[@rel="mod" and node[@pos="adj" and @sense="wettig"] and node[@pos="adj" and @sense="overtuigend"]]'
+----
+
+==== Not proven guilty, cleared. (Niet bewezen, vrijspraak)
+
+E.g. formulations:
+> "Spreekt verdachte vrij van het hem primair ten laste gelegde feit."
+>
+> "Verklaart bewezen dat verdachte het ten laste gelegde feiten, zoals vermeld onder punt 3, heeft begaan."
+
+Structural pattern:
+
+[source,XPath]
+----
+/alpino_ds//node[@sense='verklaar' and @rel='hd']/following-sibling::node[@rel='mod' and @sense='niet']
+----
+Search:
+
+[source,Fish]
+----
+set bewezen_XPath "/alpino_ds//node[@sense='verklaar' and @rel='hd']/following-sibling::node[@sense='bewezen' and @rel='predc']"
+find '4_parsed/' -mindepth 1 -type f -name '*.xml' \! -name '*.simple.xml' -exec xml sel -t -m '/alpino_ds' --if "${bewezen_XPath}" -f -n '{}' + | sort
+----
+
+=== Verdicts (uitspraken)
+
+==== Mixed verdicts: cases not dealt with:
+
+> De standpunten van de officier van justitie en de verdediging
+
+==== Extracting proven charges
+> De rechtbank verklaart wettig en overtuigend bewezen, dat de verdachte ...
+// TODO: following-sibling node
+
+[source,XPath]
+----
+/alpino_ds//node[@lemma='verklaren']/ancestor::node[@cat='smain']/following-sibling::node[@cat='ppart']/descendant::node[@rel='hd' and @lemma='bewijzen']
+----

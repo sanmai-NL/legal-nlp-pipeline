@@ -1,0 +1,430 @@
+= legal-nlp-pipeline
+Sander Maijers <S.N.Maijers@gmail.com>
+:icons: font
+:toc: right
+:toclevels: 4
+:sectnums:
+:source-highlighter: pygments
+:imagesdir: graphics/
+:description: An NLP pipeline that extracts motions for recusal (wrakingsverzoeken) from Dutch court rulings in order to classify them by yay/nay.
+
+{description}
+
+// asciidoctor -a data-uri README.adoc -o share/README.html
+
+== To install
+
+First declare the following variables:
+
+[source,Sh]
+----
+package_file_name='legal-nlp-pipeline-1.0.dev0.tar.gz'
+package_file_path="/srv/installers/${package_file_name}"
+project_dir_path="$HOME"'/IdeaProjects/legal_classifier/legal-nlp-pipeline/'
+venv_base_dir_path='/opt/Python_venvs/legal_nlp_pipeline/'
+data_dir_path='/srv/data/legal_nlp_pipeline_1/'
+# base_dir_path="${data_dir_path}/$(date '+%Y-%m-%d')/"
+base_dir_path="${data_dir_path}/11-6-2015/"
+xml_rulings_dir_path="${data_dir_path}/xml_rulings/"
+printf 'Please declare "nodes" (space-separated):\n' && read nodes
+----
+
+=== Requirements
+
+On Arch Linux
+
+[source,Sh]
+----
+sudo pacman -S python-scikit-learn python-scipy python-lxml cython python-numpy # python-matplotlib
+----
+
+==== Alpino parser
+
+To install, follow the https://www.let.rug.nl/vannoord/alp/Alpino/AlpinoUserGuide.html[Alpino user manual].
+IMPORTANT: Set `ALPINO_HOME`.
+
+To install Alpino to nodes:
+
+[source,Sh]
+----
+tar -apczv -C / '/opt/Alpino/' | ssh "${node}" sudo -n 'tar -C / -vazxpf -'
+----
+
+//==== Elephant
+//
+//[source,Sh]
+//----
+//mkdir -p "$INSTALLATIONS/Elephant/1.1/bin/"
+//make &&
+//make PREFIX="$INSTALLATIONS/Elephant/1.1/" install
+//cp 'models/' ... # TODO:
+//----
+
+=== The data set & virtual environment base directories
+
+[options="header"]
+.Table Base directories
+|===
+| Directory | Contents
+|`/srv/data/legal_nlp_pipeline_1/` | cluster configuration and XML ruling files
+|`/opt/Python_venvs/legal_nlp_pipeline/` | Python virtual environment for `legal-nlp-pipeline`
+|===
+
+Create the base directory for the data set.
+
+[source,Sh]
+----
+sudo mkdir -p -m 'ug=srwx,o=rx' '/srv/data/legal_nlp_pipeline_1/'
+----
+
+Create the virtual environment for `legal-nlp-pipeline`.
+
+. Try to install OS packages for the Python dependencies to increase performance and shorten build time.
+. Create the virtual environment:
++
+[source,Sh]
+----
+sudo pyvenv --clear "${venv_base_dir_path}" &&
+# sudo chown 0:wheel /opt/Python_venvs/legal_nlp_pipeline/ # TODO:
+----
+
+=== To build
+
+[source,Sh]
+----
+(cd "${project_dir_path}" &&
+. "${venv_base_dir_path}/bin/activate" &&
+python setup.py sdist &&
+cp -vf "${project_dir_path}/dist/${package_file_name}" "${package_file_path}")
+----
+
+=== To deploy
+
+To deploy all data to the nodes:
+
+sudo mkdir -p /srv/installers/ /srv/data/legal_nlp_pipeline_1/
+
+[source,Sh]
+----
+(cd "${base_dir_path}" &&
+printf '%s\n' $nodes | xargs -n 1 -I '{}' rsync --rsync-path='sudo rsync' --archive --backup --itemize-changes --no-owner --no-group --update -v "${package_file_path}" '{}:'"${package_file_path}"
+printf '%s\n' $nodes | xargs -n 1 -I '{}' rsync --rsync-path='sudo rsync' --archive --backup --itemize-changes --no-owner --no-group --update -v "${xml_rulings_dir_path}" '{}:'"${xml_rulings_dir_path}"
+printf '%s\n' $nodes | xargs -n 1 -I '{}' rsync --rsync-path='sudo rsync' --archive --backup --itemize-changes --no-owner --no-group --update -v "${base_dir_path}" '{}:'"${base_dir_path}")
+printf '%s\n' $nodes | xargs -n 1 -I '{}' rsync --archive --backup --itemize-changes --no-owner --no-group --update -v ~/.mailrc '{}:.mailrc')
+----
+
+Activate the virtual environment on `"${node}"` and install `legal-nlp-pipeline` in it:
+
+Issue `ssh "${node}"`, on success issue:
+
+[source,Sh]
+----
+(. "${venv_base_dir_path}/bin/activate" &&
+cd . &&
+sudo -E env PATH="${PATH}" python3 -Wall -m pip install --upgrade 'setuptools' 'pip' &&
+sudo -E env PATH="${PATH}" python3 -Wall -m pip install --upgrade "${package_file_path}" &&
+sudo ln -vfs "${venv_base_dir_path}/share/email@.service" \
+    '/etc/systemd/system/email@legal_nlp_pipeline@legal_nlp_pipeline_1.service' &&
+sudo ln -vfs "${venv_base_dir_path}/share/legal_nlp_pipeline@.service" \
+    '/etc/systemd/system/legal_nlp_pipeline@legal_nlp_pipeline_1.service' &&
+sudo systemctl daemon-reload)
+----
+WARNING: your sudo may be set up to reset the PATH environment variable, despite -E.
+
+== To run
+Edit the configuration file:
+
+[source,Sh]
+----
+sudo mkdir "${venv_base_dir_path}/etc/"
+----
+
+."${venv_base_dir_path}/etc/pipeline.args"
+----
+pipeline
+/srv/data/legal_nlp_pipeline_1/10-6-2015/
+/srv/data/legal_nlp_pipeline_1/xml_rulings/
+----
+
+Activate the virtual environment, on succes source `legal_classifier_functions.sh`:
+
+[source,Sh]
+----
+deactivate ;
+. "${venv_base_dir_path}/bin/activate" &&
+. legal_nlp_pipeline.sh
+----
+
+// === ... with Alpino server instance
+//
+// To start Alpino server instances, execute the function `start_legal_classifier`:
+
+[source,Sh]
+----
+sudo systemctl start 'legal_nlp_pipeline@legal_nlp_pipeline_1.service'
+----
+
+== To preprocess
+
+=== Data set quality issues
+
+A number of quality issues were identified concerning the data set. Some had consqData selection is a stage somewhere in between the preprocessing stage and the parsing stage. Ts well as on Alpino's output.
+
+. Double `rvr:section` element with attribute `role` that has a value `beslissing`.
+E.g. in `ECLI:NL:RBGEL:2013:3728.xml`
+. Empty `rvr:uitspraak`.
+E.g. in `ECLI:NL:RBOBR:2013:6044.xml.bsl`
+. Improper word breaks.
+E.g. '`voor-zitter`' in TODO: and '`be-slissingen`' in TODO: . Compounds were often properly recompounded by Alpino:
++
+[[afbreking_goed_gr]]
+image::afbreking_goed.svg[title="Alpino correcting improper word breaks. Note the different types of dash-like separators used. "]
++
+However, to some degree Alpino does fail to recompound:
++
+[[afbreking_fout_gr]]
+image::afbreking_fout.svg[title="Alpino failing to correct all word breaks. "]
++
+Moreover, Alpino treats other phenomena where dash-like characters are commonly used as separators in natural language data markedly differently depending on the separator used.
++
+_Em dashes_ and _hyphens_ are interchangeable as nuclei/appositions.
+// TODO:
+The following sentences are parsed identically:
++
+.Em dashes
+____
+De — vrij deftige — rechter sprak hem toe.
+____
++
+.En dashes
+____
+De – vrij deftige – rechter sprak hem toe.
+____
++
+.Hyphens
+____
+De - vrij deftige - rechter sprak hem toe.
+____
++
+However, the following compounds are not parsed equally, in fact incorrectly if using any separator but hyphens:
++
+.Em dashes: recognized as *noun*
+____
+De quasi—nonchalante rechter.
+____
++
+.En dashes, recognized as *noun*
+____
+De quasi–nonchalante rechter.
+____
++
+.Hyphens, recognized as *adjective* (`quasi_nonchalant`)
+____
+De quasi-nonchalante rechter.
+____
++
+. Improper spacing, false word boundaries, improper letter case.
+E.g. `U I T S P R A A K` , 'van[B].' TODO: handle vanB
+. Noise characters, e.g. `¬`.
+. Improperly broken sentences.
+E.g. `ECLI:NL:RBDHA:2013:19307`:
++
+[source,XML]
+----
+<para>Op 21 augustus 2013 heeft de kantonrechter een tussenvonnis gewezen. Verzoeker heeft de</para>
+<para>kantonrechter bij schriftelijk verzoek van 28 augustus 2013 gewraakt. Bij beslissing van de</para>
+----
+[source,XML]
+----
+<emphasis>
+----
+. Improper use of punctuation. E.g. inconsistent use of ";" as list separator vs as dot. `ECLI:NL:GHSHE:2015:634` is a problematic case, also `ECLI:NL:RBDHA:2014:16655`. There is a tradeoff:
+* accept `;` within list items, but require a complex grammar to express the necessary constraints.
+* middle-ground: treat `;` as an end-of-sentence marker within a list, inventing one erroneous EOS in case `;` is used _within_ an item.
+* treat every instance of `;` as an end-of-sentence marker.
++
+____
+van die brief van 12 januari 2015; deze is aan het dossier toegevoegd.
+____
++
+. Will not be recognized? `Het voorgaande leidt tot de slotsom dat het verzoek tot wraking van de kantonrechter zal worden afgewezen .` `Het verzoek tot wraking zal daarom worden afgewezen`
+. Risk: collapsing too many newlines, then the tree will become large and full of discourse parts, word sense will be disambiguated less well (`wijzen` and `af` vs. `wijs_af`).
+. Odd characters throughout sentences, e.g. in `ECLI:NL:RBUTR:2012:BV7862`
+----
+‘(t)er toetsing van de betrouwbaarheid’ van haar verklaringen, alsmede om een deskundige onderzoek te doen verrichten naar de vraag ‘of er, mede gezien de persoonlijkheidsstructuur van aangeefster (-) en de feitelijke gang van zaken (-) mogelijk, vanuit de psychologie te verklaren redenen zijn voor aangeefster om bezijden de waarheid te verklaren.’
+. NBSP characters in e.g. `ECLI:NL:GHAMS:2013:2583`
+----
+
+=== To detect the quality issues
+
+. TODO: XPath
+. TODO: XPath
+. TODO:
++
+[source,Sh]
+----
+(cd "${xml_rulings_dir_path}" &&
+find -type f -name '*.xml' ! -size 0 -exec xml sel -N rvr='http://www.rechtspraak.nl/schema/rechtspraak-1.0' -t -m '/open-rechtspraak/rvr:uitspraak//rvr:para/text()' -v . -n '{}' + | ag --pager="${PAGER}" -u '[a-zA-Z]{3,}-[a-zA-Z]{3,}')
+----
++
+. TODO:
++
+[source,Sh]
+----
+(cd "${xml_rulings_dir_path}" &&
+find -type f -name '*.xml' ! -size 0 -exec xml sel -N rvr='http://www.rechtspraak.nl/schema/rechtspraak-1.0' -t -m '/open-rechtspraak/rvr:uitspraak//rvr:para/text()' -v . -n '{}' + | ag --pager="${PAGER}" -u '[a-zA-Z] [a-zA-Z] [a-zA-Z]')
+----
++
+. Which non-Latin characters occur?
+
+[source,Sh]
+----
+grep -R -n -P '[\x80-\xFF]' "${base_dir_path}/1_extracted/"
+----
+
+=== Solving the quality issues: preprocessing rules
+
+. TODO:
+. TODO:
+. Nothing was done about this.
+. All dashes were converted to hyphens.
+. Rules:
+.. `a )` ↝ bullet point.
+.. TODO: Transliterate all files to ASCII?
+
+== To monitor
+
+=== To display a summary of current counts
+
+[source,Sh]
+----
+inventorize_parsings '4_parsed/'
+----
+
+=== Systemd service status
+
+[source,Sh]
+----
+sudo journalctl --no-tail -b 0 -f -u 'legal_nlp_pipeline@legal_nlp_pipeline_1.service'
+----
+
+== To postprocess
+
+=== Anonymization
+
+The verdicts have already been anonymized, but some unique information is left that can confound the analysis.
+
+//=== Simplifying Alpino parsings
+//
+//They contain verbose XML data that you can simplify using:
+//
+//[source,Sh]
+//----
+//iterate_over_parsings '4_parsed/' '' | xargs -n 1 simplify_parsing
+//----
+
+// TODO: fix /srv/data/legal_nlp_pipeline_1//24-5-2015//4_parsed/ECLI:NL:GHAMS:2013:4770/195.xml
+
+=== Output data quality issues
+
+. Alpino in socket mode produces ill-formed  quasi-XML data, namely fragments of separate parses interspersed.
+. Inconsistent entity referencing (`&quot`):
++
+[source,XML]
+----
+<sentence>3. De beslissing De rechtbank 3.1 . bepaalt dat nr. 4.1 van de op 19 maart 2013 gegeven beslissing , waar staat “ wijst het verzoek tot wraking af &quot; wordt gewijzigd in “ verklaart verzoekster B.V. niet-ontvankelijk in haar verzoek tot wraking &quot; , 3.2 . bepaalt dat het aldus gewijzigde punt 4.1 in de plaats komt van punt 4.1 van de beslissing van 19 maart 2013 , 3.3 . draagt de griffier van de wrakingskamer op deze beslissing toe te zenden aan verzoekster B.V. en aan de rechter , alsmede aan de voorzitter van de afdeling civiel en de president van deze rechtbank ; 3.4 . draagt de griffier van de wrakingskamer voorts op deze beslissing te zenden aan de belanghebbende belanghebbende .</sentence>
+----
+
+=== Detecting output data quality issues
+
+. Find ill-formed parsed tokenized files
++
+[source,Sh]
+----
+find '4_parsed/' -type f -exec sh -c "xmllint --format '{}' 2> '/dev/null' > '/dev/null'" -or -printf '%f' \; | wc -l
+----
+# TODO: improve
+
+=== Solving output data quality issues
+. Don't use Alpino in socket mode.
+
+//== Other utilities
+
+== Results
+
+=== Merging results
+
+[source,Sh]
+----
+(cd "${base_dir_path}" &&
+printf '%s\n' $nodes | xargs -n 1 -I '{}' rsync --archive --backup --itemize-changes --no-owner --no-group --update -v '{}:'"${base_dir_path}" '.')
+----
+// TODO: run in parallel
+
+== Content/error analysis
+
+=== True recusals
+// TODO line numbers, file names
+. `ECLI:NL:CBB:2012:BW8059.xml.txt.tok.sel.46.xml`
+. `ECLI:NL:GHAMS:2014:2341.xml.txt.tok.sel.67.xml`
+. `ECLI:NL:GHLEE:2012:BW5233.xml.txt.tok.sel.55.xml`
+. `ECLI:NL:GHARN:2011:BU4379.xml.txt.tok.sel.61.xml`
+
+=== Recusal upheld ('`toegewezen`')
+
+ in `ECLI:NL:GHAMS:2013:4770.xml.txt.tok.sel.212.xml`
+
+[source,Sh]
+----
+upheld_XPath="//node[@sense='wijs_toe' and @rel='hd' and @pvtijd='tgw' and @pt='ww']"
+
+iterate_over_parsings "${base_dir_path}/4_parsed/" "${upheld_XPath}"
+----
+
+=== Without cause ('`niet-ontvankelijk verklaard`')
+
+`ECLI:NL:RBGEL:2013:CA2413.xml.txt.tok.sel.39.xml`
+`ECLI:NL:GHSGR:2012:BX8786/22.xml`
+
+`De Centrale Raad van Beroep; Recht doende: Bepaalt dat het verzoek om wraking niet in behandeling wordt genomen.`
+`Beslissing De wrakingskamer van het Gerechtshof verklaart verzoeker niet-ontvankelijk in zijn verzoek tot wraking .`
+`Een en ander leidt tot de conclusie dat het wrakingsverzoek dient te worden afgewezen .`
+`Het hof: verklaart Naam kennelijk niet-ontvankelijk in zijn hoger beroep. `
+
+[source,Sh]
+----
+without_cause_XPath="/alpino_ds//node[@cat='smain' and node[@sense='niet_ontvankelijk'] and node[@rel='hd' and @pt='ww' and @sense='verklaar']]"
+
+iterate_over_parsings "${base_dir_path}/4_parsed/" "${without_cause_XPath}"
+----
+
+=== Recusal refused ('`afgewezen`')
+
+Count the number of rulings in which recusal was refused:
+
+[source,Sh]
+----
+refused_XPath="//node[@sense='wijs_af' and @rel='hd' and @pt='ww' and (@pvtijd='tgw' or @wvorm='vd')]"
+
+iterate_over_parsings "${base_dir_path}/4_parsed/" "${refused_XPath}"
+----
+
+Hints for refusal:
+
+. '`De rechtbank`' in ruling text
+. last sentence(s)
+. '`verzoek`' erin
+
+`ECLI:NL:RBLIM:2014:7791.xml.txt.tok.sel.47.xml`
+
+== Classification
+
+=== Training and testing
+
+[source,Sh]
+----
+train/category_0_folder/
+train/category_1_folder/
+test/category_0_folder/
+test/category_1_folder/
+----

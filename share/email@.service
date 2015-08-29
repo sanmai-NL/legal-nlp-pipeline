@@ -1,0 +1,9 @@
+[Unit]
+Description=E-mail to S.N.Maijers@gmail.com about %I
+
+[Service]
+Type=oneshot
+# TODO: make system-independent
+ExecStart=/usr/bin/mailx -v -r '%n@%H <S.N.Maijers@gmail.com>' -s '%I failed on %H' 'S.N.Maijers@gmail.com'
+User=sander
+Group=systemd-journal

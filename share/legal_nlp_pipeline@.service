@@ -1,0 +1,50 @@
+[Unit]
+AssertPathIsDirectory=/srv/data/%I/
+AssertPathIsDirectory=/opt/Python_venvs/%P/
+ConditionACPower=true
+Description="Legal NLP pipeline: email@%n /opt/Python_venvs/%P/ -> /srv/data/%I"
+Documentation=file:///opt/Python_venvs/%P/share/README.html
+OnFailure=email@%n
+# sudo systemctl start 'email@legal_nlp_pipeline@legal_nlp_pipeline_1.service'
+# . ~/'devel/Python_venvs/legal_classifier/bin/activate'
+# systemctl --user import-environment PATH
+# mkdir -p ~/.config/systemd/user/
+# sudo cp "$HOME/IdeaProjects/legal_classifier/bin/legal_nlp_pipeline@.service" /etc/systemd/system/ # /etc/systemd/user/ # "$HOME/.config/systemd/user/"
+# /etc/systemd/user/
+# Group=thesis
+# Restart=on-failure
+# RestartSec=120
+# User=thesis
+
+[Service]
+CPUSchedulingPolicy=batch
+#Environment=VIRTUAL_ENV="/opt/Python_venvs/%P"
+#Environment=PATH="$VIRTUAL_ENV/bin:$PATH"
+#Environment='PATH=$VIRTUAL_ENV/bin:$PATH'
+ExecStart=/bin/sh -c '{ . /opt/Python_venvs/%P/bin/activate && . legal_nlp_pipeline.sh && start_legal_nlp_pipeline_under_systemd @/opt/Python_venvs/%P/etc/pipeline.args ; }'
+# python -W all -m %I --help
+# ExecStop=
+# Group=thesis
+# IOSchedulingPriority=
+Nice=-15
+PrivateTmp=true
+# User=thesis
+WorkingDirectory=/srv/data/%I/
+
+[Install]
+WantedBy=multi-user.target
+
+#[Service]
+# Type=forking
+# PIDFile=/home/sander/Documents/thesis/legal_classifier.pid
+# ExecStart=/bin/sh -c '. ~/devel/Python_venvs/legal_classifier/bin/activate && . legal_classifier_functi$
+# ExecStop=/bin/sh
+# Nice=-15
+# CPUSchedulingPolicy=batch
+# IOSchedulingPriority
+# FailureAction=none
+# WorkingDirectory=/home/sander/Documents/thesis/
+# User=sander
+# Group=users
+# Restart=on-failure
+# RestartSec=120
