@@ -76,11 +76,6 @@ def extract_wraking_text(ruling_tree):
         xpath_str, namespaces=NAMESPACE_PREFIX_MAP)
               for xpath_str in xpath_strs)
 
-    ecli_xpath = XPath(
-        '/open-rechtspraak/rdf:RDF/rdf:Description/dcterms:identifier/text()',
-        namespaces=NAMESPACE_PREFIX_MAP)
-    ecli = str(ecli_xpath(ruling_tree)[0])
-
     emphasis_element_name = '{{{rvr:s}}}emphasis'.format(
         rvr=NAMESPACE_PREFIX_MAP['rvr'])
     title_element_name = '{{{rvr:s}}}title'.format(
