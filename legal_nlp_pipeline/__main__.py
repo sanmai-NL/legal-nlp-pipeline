@@ -13,22 +13,23 @@ from legal_nlp_pipeline.fetch_xml_rulings import fetch_and_process_eclis
 from legal_nlp_pipeline.parse_rulings_texts import alpino_parse_tokenized_files_directly_multiprocessing
 from legal_nlp_pipeline.postprocess_parsings import postprocess_parsed_files_multiprocessing
 
+from collections import namedtuple
+from multiprocessing import cpu_count
+from logging import info, warning
+from json import load
+from socket import gethostname
+
+from collections import defaultdict
+from itertools import chain
+from json import dump, load
+from logging import debug, info
+from random import choice
 DIRECTORY_PERMISSIONS = S_ISGID | S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH
 
 # TODO: move into module
 
 
-def determine_ecli(xml_ruling_file_path: Path):
-    return xml_ruling_file_path.name.split('.')[0]
-
-
 def distribute_work(args):
-    from collections import defaultdict
-    from itertools import chain
-    from json import dump, load
-    from logging import debug, info
-    from random import choice
-
     info('Distributing work ... ')
 
     cluster_file_path = args.output_dir_path.joinpath(args.cluster_file_name)
@@ -62,15 +63,11 @@ def distribute_work(args):
                     n_node_jobs=len(node_jobs),
                     node_id=node_id,
                     work_distribution_file_path=work_distribution_file_path))
+def determine_ecli(xml_ruling_file_path: Path):
+    return xml_ruling_file_path.name.split('.')[0]
 
 
 def pipeline(args):
-    from collections import namedtuple
-    from multiprocessing import cpu_count
-    from logging import info, warning
-    from json import load
-    from socket import gethostname
-
     output_dir_path = args.output_dir_path.resolve()
     work_distribution_file_path = output_dir_path.joinpath(gethostname(
     )).with_suffix('.json')
