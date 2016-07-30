@@ -1,6 +1,8 @@
 from pathlib import Path
 
-from legal_nlp_pipeline.parse_rulings_texts import ALPINO_ENV, alpino_home_dir_path, ALPINO_HOME
+from legal_nlp_pipeline.parse_rulings_texts import ALPINO_ENV
+from legal_nlp_pipeline.parse_rulings_texts import ALPINO_HOME
+from legal_nlp_pipeline.parse_rulings_texts import alpino_home_dir_path
 
 ALPINO_TOKENIZE_EXECUTABLE = str(
     alpino_home_dir_path.joinpath('Tokenization', 'tokenize.sh'))
@@ -30,12 +32,12 @@ def alpino_tokenize_text_file(text_file_path: Path, target_dir_path: Path,
                         tokenized_file_path=tokenized_file_path))
         else:
             debug(
-                "Tokenized file at '{tokenized_file_path}' already exists and has nonzero size. Skipping. ".format(
+                "Tokenized file at '{tokenized_file_path}' already exists and"
+                " has nonzero size. Skipping. ".format(
                     tokenized_file_path=tokenized_file_path))
     else:
-        warning(
-            "Text file at '{text_file_path}' does not exist or is empty. Skipping. ".format(
-                text_file_path=text_file_path))
+        warning("Text file at '{text_file_path}' does not exist or is empty. "
+                "Skipping. ".format(text_file_path=text_file_path))
 
 
 def alpino_tokenize_text_files(extracted_dir_path: Path, target_dir_path: Path,
@@ -56,8 +58,8 @@ def alpino_tokenize_text_files(extracted_dir_path: Path, target_dir_path: Path,
                 out_suffix=out_suffix)
         else:
             raise RuntimeError(
-                "Extracted text file '{text_file_path}' is not a file or has zero size. ".format(
-                    text_file_path=text_file_path))
+                "Extracted text file '{text_file_path}' is not a file or has "
+                "zero size. ".format(text_file_path=text_file_path))
 
     info("Tokenized texts to '{target_dir_path}'.".format(
         target_dir_path=target_dir_path))

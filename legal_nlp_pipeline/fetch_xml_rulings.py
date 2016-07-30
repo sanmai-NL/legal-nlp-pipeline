@@ -1,6 +1,29 @@
+from collections import deque
 from collections.abc import Iterable
-# from multiprocessing import Queue
+from contextlib import closing
+from http import HTTPStatus
+from logging import basicConfig
+from logging import exception
+from logging import getLevelName
+from logging import getLogger
+from logging import info
+from logging import warning
+from multiprocessing import cpu_count
+from multiprocessing import Pool
 from pathlib import Path
+from pickle import dump
+from pickle import HIGHEST_PROTOCOL
+from pickle import load
+from re import compile
+from socket import timeout
+from time import sleep
+from urllib.request import urlopen
+
+from lxml.etree import parse
+from lxml.etree import tostring
+from lxml.etree import XML
+from lxml.etree import XMLSyntaxError
+from lxml.etree import XPath
 
 NAMESPACE_PREFIX_MAP = {'atom': 'http://www.w3.org/2005/Atom',
                         'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
@@ -22,56 +45,55 @@ EXPECTED_CONTENT_TYPE_XML = 'application/xml'
 NUMBER_OF_ECLIS_XPATH_SPEC = '/atom:feed/atom:subtitle[1]/text()'
 PROCEDURE_WRAKING = 'http://psi.rechtspraak.nl/procedure#wraking'
 RULING_DATA_URL_PREFIX = 'http://data.rechtspraak.nl/uitspraken/content?id='
-RULING_FILTER_XPATH_SPEC = '/open-rechtspraak/rdf:RDF[1]/rdf:Description[1]/psi:procedure[1]/@resourceIdentifier[1]'
+RULING_FILTER_XPATH_SPEC = '/open-rechtspraak/rdf:RDF[1]/rdf:Description[1]/'
+'psi:procedure[1]/@resourceIdentifier[1]'
 ZOEKEN_URL_PREFIX = 'http://data.rechtspraak.nl/uitspraken/zoeken?'
 
 
 def fetch(url: str, expected_content_type: str):
-    from contextlib import closing
-    from http.client import OK
-    from logging import exception, warning
-    from lxml.etree import XML, XMLSyntaxError
-    from socket import timeout
-    from urllib.request import urlopen
-
-    warning_message = ''
+    warning_msg = ''
     try:
         try:
             with closing(urlopen(
                     url, timeout=60)) as response:  # TODO: parameterize
                 content_type = response.info().get_content_type()
                 http_response_code = response.getcode()
-                if http_response_code == OK and content_type == expected_content_type:
+                if http_response_code == HTTPStatus.OK and content_type == \
+                        expected_content_type:
                     data = response.read()
-                    if content_type == EXPECTED_CONTENT_TYPE_ATOM or EXPECTED_CONTENT_TYPE_XML:
+                    if content_type == EXPECTED_CONTENT_TYPE_ATOM or \
+                            EXPECTED_CONTENT_TYPE_XML:
                         try:
                             tree = XML(data)
                         except XMLSyntaxError:
-                            exception(
-                                "Data from '{url:s}' is ill-formed XML. Data:\n{data:s}".format(
-                                    url=url, data=data.decode()))
+                            exception("Data from '{url:s}' is ill-formed XML. "
+                                      "Data:\n{data:s}".format(
+                                          url=url, data=data.decode()))
                             raise
                         else:
                             return tree
                     else:
                         return data
                 else:
-                    warning_message = "Unexpected HTTP status code and/or content type of response. The HTTP "
-                    "response code is {http_response_code:d}. Response content is of type "
-                    "'{content_type:s}', expected '{expected_content_type:s}'". \
+                    warning_msg = "Unexpected HTTP status code and/or " \
+                                  "content type of response. The HTTP " \
+                                  "response code is {http_response_code:d}. " \
+                                  "Response content is of type '{" \
+                                  "content_type:s}', expected '{" \
+                                  "expected_content_type:s}'". \
                         format(http_response_code=http_response_code,
                                expected_content_type=expected_content_type,
                                content_type=content_type)
-                    raise ValueError(warning_message)
+                    raise ValueError(warning_msg)
         except timeout:
-            warning_message = "Fetching URL '{url:s}' did not complete within 60 seconds. ".format(
-                url=url)
+            warning_msg = "Fetching URL '{url:s}' did not complete " \
+                          "within 60 seconds. ".format(url=url)
             raise
-    except (timeout, ValueError) as e:
+    except (timeout, ValueError) as exc:
         final_warning_message = "Fetching URL '{url:s}' failed. ".format(
             url=url)
-        warning(final_warning_message + warning_message)
-        raise ResourceWarning(warning_message) from e
+        warning(final_warning_message + warning_msg)
+        raise ResourceWarning(warning_msg) from exc
 
 
 def distribute_remainder_over_range_indices(start, stop, step, remainder):
@@ -86,9 +108,6 @@ def distribute_remainder_over_range_indices(start, stop, step, remainder):
     indices.append(stop)
     return indices
 
-# def sanitize_xml_bytes(xml: bytes):
-#     return xml.replace(b'&euml;', b'&#235;')
-
 
 def process_eclis(relevant_eclis: Iterable, ruling_filter_xpath_spec: str,
                   data_dir_path: Path, logger):
@@ -99,8 +118,6 @@ def process_eclis(relevant_eclis: Iterable, ruling_filter_xpath_spec: str,
     :param logger:
     :yield: any irrelevant ECLI as string or None
     """
-    from lxml.etree import XPath, tostring
-    from time import sleep
 
     ruling_filter_xpath = XPath(
         ruling_filter_xpath_spec, namespaces=NAMESPACE_PREFIX_MAP)
@@ -119,15 +136,16 @@ def process_eclis(relevant_eclis: Iterable, ruling_filter_xpath_spec: str,
                         expected_content_type=EXPECTED_CONTENT_TYPE_XML)
                 except ResourceWarning:
                     logger.error(
-                        'Will back off {backoff_time:s} s now and continue. '.format(
-                            backoff_time=backoff_time))
-                    sleep(
-                        backoff_time)  # TODO make backoff_time delay configurable
+                        'Will back off {backoff_time:s} s now and continue. '
+                        ''.format(backoff_time=backoff_time))
+                    sleep(backoff_time)
+                    # TODO make backoff_time delay configurable
                     continue
                 else:
                     procedure = ruling_filter_xpath(ruling_tree)[0]
 
-                    if procedure == PROCEDURE_WRAKING:  # TODO: Make configurable
+                    # TODO: configurable
+                    if procedure == PROCEDURE_WRAKING:
                         logger.info("Including ruling '{ecli:s}'. ".format(
                             ecli=ecli))
                         with ecli_file_path.open(mode='wb') as ecli_file:
@@ -140,16 +158,19 @@ def process_eclis(relevant_eclis: Iterable, ruling_filter_xpath_spec: str,
                         logger.info("Excluding ruling '{ecli:s}'. ".format(
                             ecli=ecli))
                         logger.debug(
-                            "Ruling '{ecli:s}' is of procedure type '{procedure:s}'. ".format(
+                            "Ruling '{ecli:s}' is of procedure type '{"
+                            "procedure:s}'. ".format(
                                 ecli=ecli, procedure=procedure))
 
                         yield ecli
             else:
                 logger.info(
-                    "Data for ruling ruling '{ecli:s}' has already been fetched. "
+                    "Data for ruling ruling '{ecli:s}' has already been "
+                    "fetched. "
                     "Skipped fetching data ... ".format(ecli=ecli))
-        except (RuntimeError, ResourceWarning) as e:  # TODO: narrow down
-            logger.error(str(e))
+        except (RuntimeError, ResourceWarning) as exc:
+            # TODO: narrow down
+            logger.error(str(exc))
             yield
             continue
 
@@ -157,17 +178,14 @@ def process_eclis(relevant_eclis: Iterable, ruling_filter_xpath_spec: str,
 def process_ecli_batch(xml_rulings_dir_path: Path, data_dir_path: Path,
                        complete_query: str, previous_irrelevant_eclis:
                        frozenset, log_level: int):
-    from logging import basicConfig, getLogger, getLevelName
-    from lxml.etree import parse, XPath, tostring
-    # from multiprocessing import get_logger
-
     basicConfig(
-        level=log_level,
-        format='%(asctime)s - %(levelname)s - %(message)s')  # TODO: parameterize level
+        level=log_level, format='%(asctime)s - %(levelname)s - %(message)s')
+    # TODO: parameterize level
     logger = getLogger(process_ecli_batch.__name__)
     logger.setLevel(log_level)
     for handler in logger.handlers:
-        handler.setLevel(log_level)  # TODO: Why oh why is this needed??
+        # TODO: Why oh why is this needed??
+        handler.setLevel(log_level)
     logger.warning("Log level = {0}.".format(
         getLevelName(getLogger().getEffectiveLevel())))
 
@@ -183,13 +201,14 @@ def process_ecli_batch(xml_rulings_dir_path: Path, data_dir_path: Path,
         except ResourceWarning:
             raise RuntimeError('Cannot work without ECLIs batch data. ')
         else:
-            logger.info(
-                "Fetched batch of ECLIs from URL '{url:s}' to '{ecli_batch_file_path}'. ".format(
-                    url=url, ecli_batch_file_path=ecli_batch_file_path))
+            logger.info("Fetched batch of ECLIs from URL '{url:s}' to '{"
+                        "ecli_batch_file_path}'. ".format(
+                            url=url,
+                            ecli_batch_file_path=ecli_batch_file_path))
     else:
         ecli_batch_tree = parse(str(ecli_batch_file_path))
 
-    # Cannot be global due to multiprocessing:
+    # Cannot be global due to multiprocessing.
     ecli_xpath = XPath(ECLI_XPATH_SPEC, namespaces=NAMESPACE_PREFIX_MAP)
     relevant_eclis = (ecli for ecli in ecli_xpath(ecli_batch_tree)
                       if ecli not in previous_irrelevant_eclis)
@@ -207,19 +226,14 @@ def process_ecli_batch(xml_rulings_dir_path: Path, data_dir_path: Path,
 
 
 def fetch_and_process_eclis(args):
-    from collections import deque
-    from contextlib import closing
-    from logging import getLogger, warning, info
-    from lxml.etree import XPath
-    from multiprocessing import cpu_count, Pool
-    from pickle import dump, load, HIGHEST_PROTOCOL
-    from re import compile
-
     # TODO: why use query_size?
     # query_size = 1000
-    # query1 = 'date=2012-01-01&date=2015-08-01T00:00:00&return=DOC&max=1000&type=Uitspraak&' \
-    #          'subject=http%3A%2F%2Fpsi.rechtspraak.nl%2Frechtsgebied%23strafrecht'
-    query = 'date=2010-01-01&date=2015-08-01T00:00:00&return=DOC&type=Uitspraak'
+    # query1 = 'date=2012-01-01&date=2015-08-01T00:00:00&return=DOC&max=1000
+    # &type=Uitspraak&' \
+    #          'subject=http%3A%2F%2Fpsi.rechtspraak.nl%2Frechtsgebied
+    # %23strafrecht'
+    query = 'date=2010-01-01&date=2015-08-01T00:00:00&return=DOC&type' \
+            '=Uitspraak'
     # TODO: factor out query templates, make configurable
     polling_query = 'max=0&{query:s}'.format(query=query)  # TODO: performance
     url = ZOEKEN_URL_PREFIX + polling_query
@@ -230,8 +244,8 @@ def fetch_and_process_eclis(args):
     except ResourceWarning:
         if args.n_max_rulings == -1:
             raise RuntimeError(
-                "Cannot work without n_max_rulings: both unspecified and undetermined from '{url}'. "
-                .format(url=url))
+                "Cannot work without n_max_rulings: both unspecified and "
+                "undetermined from '{url}'. ".format(url=url))
     number_of_eclis_xpath = XPath(
         NUMBER_OF_ECLIS_XPATH_SPEC, namespaces=NAMESPACE_PREFIX_MAP)
     number_of_eclis_xpath_regex = compile(r"Aantal gevonden ECLI's: (\d+)")
@@ -267,21 +281,15 @@ def fetch_and_process_eclis(args):
                     frozenset(load(file=previous_irrelevant_eclis_file))
                 # TODO: security
         else:
-            warning(
-                "Previous irrelevant rulings file at '{irrelevant_eclis_file_path}' does not exist or has "
-                "zero size.".format(
-                    irrelevant_eclis_file_path=irrelevant_eclis_file_path))
+            warning("Previous irrelevant rulings file at '{"
+                    "irrelevant_eclis_file_path}' does not exist or has "
+                    "zero size.".format(
+                        irrelevant_eclis_file_path=irrelevant_eclis_file_path))
 
         if not data_dir_path.is_dir():  # TODO: exists?
             data_dir_path.mkdir()
 
     log_level = getLogger().getEffectiveLevel()
-    # info('Log level = {0:d}'.format(log_level))
-    # from sys import exit
-    # exit(0)
-    # logger = getLogger(
-    # get_logger()  # TODO:
-    # logger.setLevel(log_level)
 
     with Pool(processes=n_workers) as pool:
         futures = deque()
@@ -289,8 +297,10 @@ def fetch_and_process_eclis(args):
         with closing(pool):
             for max_index in rulings_ranges_indices:
                 if max_index > 0:
-                    complete_query = 'from={min_index:d}&max={max_index:d}&{query:s}'. \
-                        format(min_index=min_index, max_index=max_index, query=query)
+                    complete_query = 'from={min_index:d}&max={max_index:d}&{' \
+                                     'query:s}'. \
+                        format(min_index=min_index, max_index=max_index,
+                               query=query)
 
                     futures.append(
                         pool.apply_async(
@@ -303,18 +313,20 @@ def fetch_and_process_eclis(args):
         try:
             irrelevant_eclis_tuple = tuple(
                 frozenset(future.get()) for future in futures)
-        except TypeError as e:
+        except TypeError as exc:
             raise RuntimeError(
-                'The futures to irrelevant ECLIs did not result in actual values for at least one '
-                'worker. Something went wrong with the multiprocessing pool in '
-                + fetch_and_process_eclis.__name__) from e  # TODO: reword
+                'The futures to irrelevant ECLIs did not result in actual '
+                'values for at least one '
+                'worker. Something went wrong with the multiprocessing pool '
+                'in ' +
+                fetch_and_process_eclis.__name__) from exc  # TODO: reword
         else:
-            irrelevant_eclis = frozenset.union(previous_irrelevant_eclis, *
-                                               irrelevant_eclis_tuple)
+            irrelevant_eclis = frozenset.union(previous_irrelevant_eclis,
+                                               *irrelevant_eclis_tuple)
 
-            info(
-                'Dumping irrelevant ECLIs to {irrelevant_eclis_file_path}'.format(
-                    irrelevant_eclis_file_path=irrelevant_eclis_file_path))
+            info('Dumping irrelevant ECLIs to {'
+                 'irrelevant_eclis_file_path}'.format(
+                     irrelevant_eclis_file_path=irrelevant_eclis_file_path))
             with irrelevant_eclis_file_path.open(
                     mode='wb') as irrelevant_eclis_file:
                 dump(irrelevant_eclis, irrelevant_eclis_file, HIGHEST_PROTOCOL)

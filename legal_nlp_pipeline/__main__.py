@@ -1,32 +1,40 @@
-# from collections import Iterable
-# from lxml.etree import XPath
 from argparse import ArgumentParser
+from collections import defaultdict
+from collections import namedtuple
 from itertools import chain
-from logging import basicConfig, info, warning, INFO
+from json import dump
+from json import load
+from logging import basicConfig
+from logging import debug
+from logging import INFO
+from logging import info
+from logging import warning
+from multiprocessing import cpu_count
 from os import getpid
 from pathlib import Path
-from stat import S_ISGID, S_IRUSR, S_IWUSR, S_IXUSR, S_IRGRP, S_IXGRP, S_IROTH, S_IXOTH
+from random import choice
+from socket import gethostname
+from stat import S_IRGRP
+from stat import S_IROTH
+from stat import S_IRUSR
+from stat import S_ISGID
+from stat import S_IWUSR
+from stat import S_IXGRP
+from stat import S_IXOTH
+from stat import S_IXUSR
 
 from legal_nlp_pipeline.alpino_tokenize import alpino_tokenize_text_files
-from legal_nlp_pipeline.extract_rulings_texts_wraking import extract_wraking_texts
+from legal_nlp_pipeline.extract_rulings_texts_wraking import \
+    extract_wraking_texts
 from legal_nlp_pipeline.fetch_xml_rulings import fetch_and_process_eclis
-from legal_nlp_pipeline.parse_rulings_texts import alpino_parse_tokenized_files_directly_multiprocessing
-from legal_nlp_pipeline.postprocess_parsings import postprocess_parsed_files_multiprocessing
-
-from collections import namedtuple
-from multiprocessing import cpu_count
-from logging import info, warning
-from json import load
-from socket import gethostname
-
-from collections import defaultdict
-from itertools import chain
-from json import dump, load
-from logging import debug, info
-from random import choice
-DIRECTORY_PERMISSIONS = S_ISGID | S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH
+from legal_nlp_pipeline.parse_rulings_texts import \
+    alpino_parse_tokenized_files_directly_multiprocessing
+from legal_nlp_pipeline.postprocess_parsings import \
+    postprocess_parsed_files_multiprocessing
 
 # TODO: move into module
+DIRECTORY_PERMISSIONS = S_ISGID | S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | \
+                        S_IXGRP | S_IROTH | S_IXOTH
 
 
 def distribute_work(args):
@@ -57,12 +65,14 @@ def distribute_work(args):
         with work_distribution_file_path.open(
                 mode='wt') as work_distribution_file:
             dump(node_jobs, work_distribution_file)
-            info(
-                "Distributed {n_node_jobs:d} jobs to node {node_id}, as recorded at "
-                "'{work_distribution_file_path}'. ".format(
-                    n_node_jobs=len(node_jobs),
-                    node_id=node_id,
-                    work_distribution_file_path=work_distribution_file_path))
+            info("Distributed {n_node_jobs:d} jobs to node {node_id}, "
+                 "as recorded at "
+                 "'{work_distribution_file_path}'. ".format(
+                     n_node_jobs=len(node_jobs),
+                     node_id=node_id,
+                     work_distribution_file_path=work_distribution_file_path))
+
+
 def determine_ecli(xml_ruling_file_path: Path):
     return xml_ruling_file_path.name.split('.')[0]
 
@@ -78,12 +88,9 @@ def pipeline(args):
             work_distribution = load(work_distribution_file)
     except FileNotFoundError:
         warning(
-            "Work distribution not found at '{work_distribution_file_path}'. ".format(
-                work_distribution_file_path=work_distribution_file_path))
+            "Work distribution not found at '{work_distribution_file_path}'. "
+            "".format(work_distribution_file_path=work_distribution_file_path))
         work_distribution = None  # TODO
-
-    # with TempDir(output_dir_path=output_dir_path, suffix='legal_nlp_pipeline',
-    #             directory_permissions=DIRECTORY_PERMISSIONS) as temp_dir:
 
     extracted_dir_path = output_dir_path.joinpath('1_extracted/')
     tokenized_dir_path = output_dir_path.joinpath('2_tokenized/')
@@ -117,7 +124,8 @@ def pipeline(args):
                 pass
         else:
             info(
-                "Skipping '{subdir_path}' as its prefix '{prefix}' is not equal to '{temp_base_dir_path}', "
+                "Skipping '{subdir_path}' as its prefix '{prefix}' is not "
+                "equal to '{temp_base_dir_path}', "
                 "so it is not rooted in the temporary base directory. ".format(
                     subdir_path=subdir_path,
                     prefix=subdir_path.parent,
@@ -138,12 +146,6 @@ def pipeline(args):
             in_suffix=text_files_suffix,
             out_suffix=tokenized_files_suffix)
 
-        # select_tokenized_files(tokenized_dir_path=subdir_paths.tokenized_dir_path,
-        #                        target_dir_path=subdir_paths.selected_dir_path,
-        #                        work_distribution=work_distribution)
-
-        # selected_tokenized_files = iglob(join(selected_dir_path, '*.sel'))
-
         n_cores = cpu_count()
 
         alpino_parse_tokenized_files_directly_multiprocessing(
@@ -153,12 +155,6 @@ def pipeline(args):
             work_distribution=work_distribution,
             in_suffix=tokenized_files_suffix)
 
-        # xml_parse_tree_files = iglob(join(parsed_dir_path, '*/*.xml'))
-        # render_trees(parsed_dir_path=parsed_dir_path,
-        #              target_dir_path=trees_dir_path,
-        #              work_distribution=work_distribution)
-        # tokenized_files = (join(tokenized_dir_path, ecli, '.xml') for ecli in work_distribution)
-
         def get_total_work_distribution():
             for json_file_path in output_dir_path.glob('legal*.json'):
                 with json_file_path.open(mode='rt') as json_file:
@@ -166,7 +162,8 @@ def pipeline(args):
                     yield a_work_distribution
 
         total_work_distribution = \
-            chain.from_iterable(a_work_distribution for a_work_distribution in get_total_work_distribution())
+            chain.from_iterable(a_work_distribution for a_work_distribution in
+                                get_total_work_distribution())
 
         postprocess_parsed_files_multiprocessing(
             parsed_dir_path=subdir_paths.parsed_dir_path,
@@ -222,7 +219,8 @@ if __name__ == '__main__':
 
     pipeline_parser = subparsers.add_parser(
         pipeline.__name__,
-        help='Process ECLIs as node in cluster through pipeline according to work '
+        help='Process ECLIs as node in cluster through pipeline according to '
+        'work '
         'distribution. ')
     pipeline_parser.set_defaults(func=pipeline)
     pipeline_parser.add_argument(
@@ -239,7 +237,8 @@ if __name__ == '__main__':
 
     basicConfig(
         level=args.v,
-        format='%(asctime)s - %(levelname)s - %(message)s')  # TODO: parameterize level
+        format='%(asctime)s - %(levelname)s - %(message)s')  # TODO:
+    # TODO: parameterize level
 
     info('Starting. ')
     try:

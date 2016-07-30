@@ -130,5 +130,3 @@ stop_alpino_classifier_instances() {
    done ;
    # tmux kill-session -t legal_nlp_pipeline ;
 }
-
-

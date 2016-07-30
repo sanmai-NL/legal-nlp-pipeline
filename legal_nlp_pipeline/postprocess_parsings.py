@@ -1,8 +1,16 @@
-# from collections import Iterable
-from pathlib import Path
+from collections import defaultdict
+from collections import deque
 from enum import IntEnum
-# from itertools import count
-# _enumcount = count()
+from json import dump
+from logging import debug
+from logging import info
+from logging import warning
+from multiprocessing import Pool
+from pathlib import Path
+from subprocess import check_call
+
+from lxml.etree import parse
+from lxml.etree import XPath
 
 ENCODING = 'utf-8'
 
@@ -17,21 +25,27 @@ class SentenceType(IntEnum):
 # ECLI:NL:GHAMS:2013:4770
 # TODO: ECLI:NL:GHAMS:2013:4770/195.xml is missing, is on IJsvogel
 # TODO: reorder
-upheld_xpath_spec = "/alpino_ds//node[(@cat='smain' or (@cat='sv1' and not(node[@rel='su']))) and " \
-                    "node[@sense='wijs_toe' and @rel='hd' and @pt='ww' and @pvtijd='tgw']]"
-# /alpino_ds//node[@sense='wijs_toe' and @rel='hd' and @pt='ww' and @pvtijd='tgw']"  (@pvtijd='tgw' or @wvorm='vd')
-refused_xpath_spec = "/alpino_ds//node[(@cat='smain' or (@cat='sv1' and not(node[@rel='su']))) and " \
-                     "node[@sense='wijs_af' and @rel='hd' and @pt='ww' and @pvtijd='tgw']]"
+upheld_xpath_spec = "/alpino_ds//node[(@cat='smain' or (@cat='sv1' and not(" \
+                    "node[@rel='su']))) and " \
+                    "node[@sense='wijs_toe' and @rel='hd' and @pt='ww' and " \
+                    "@pvtijd='tgw']]"
+# /alpino_ds//node[@sense='wijs_toe' and @rel='hd' and @pt='ww' and
+# @pvtijd='tgw']"  (@pvtijd='tgw' or @wvorm='vd')
+refused_xpath_spec = "/alpino_ds//node[(@cat='smain' or (@cat='sv1' and not(" \
+                     "node[@rel='su']))) and " \
+                     "node[@sense='wijs_af' and @rel='hd' and @pt='ww' and " \
+                     "@pvtijd='tgw']]"
 # refused_xpath_spec =
-# "/alpino_ds//node[@sense='wijs_af' and @rel='hd' and @pt='ww' and (@pvtijd='tgw' or @wvorm='vd')]"
-without_cause_xpath_spec = "/alpino_ds//node[(@cat='smain' or (@cat='sv1' and not(node[@rel='su']))) and " \
-                           "node[@sense='niet_ontvankelijk'] and node[@rel='hd' and @pt='ww' and @sense='verklaar']]"
+# "/alpino_ds//node[@sense='wijs_af' and @rel='hd' and @pt='ww' and (
+# @pvtijd='tgw' or @wvorm='vd')]"
+without_cause_xpath_spec = "/alpino_ds//node[(@cat='smain' or (@cat='sv1' " \
+                           "and not(node[@rel='su']))) and " \
+                           "node[@sense='niet_ontvankelijk'] and node[" \
+                           "@rel='hd' and @pt='ww' and @sense='verklaar']]"
 predictive_text_xpath_spec = "/alpino_ds//node[@cat='smain']"  # TODO:
 
 
 def determine_sentence_type(xml_tree):
-    from lxml.etree import XPath
-
     if len(XPath(refused_xpath_spec)(xml_tree)) > 0:
         return SentenceType.refused
     elif len(XPath(upheld_xpath_spec)(xml_tree)) > 0:
@@ -45,9 +59,6 @@ def determine_sentence_type(xml_tree):
 
 
 def postprocess_parsed_file_directly(parsed_file_path: Path):
-    from logging import debug, warning
-    from lxml.etree import parse
-
     if parsed_file_path.is_file() and parsed_file_path.stat().st_size != 0:
         try:
             xml_tree = parse(str(parsed_file_path))
@@ -63,8 +74,8 @@ def postprocess_parsed_file_directly(parsed_file_path: Path):
             return ecli, sentence_index, sentence_type
     else:
         warning(
-            "Skipping parsed file to be postprocessed at '{parsed_file_path}'. ".format(
-                parsed_file_path=parsed_file_path))
+            "Skipping parsed file to be postprocessed at '{parsed_file_path}'"
+            ". ".format(parsed_file_path=parsed_file_path))
 
 # TODO: reject rulings without any verdict
 
@@ -72,21 +83,12 @@ def postprocess_parsed_file_directly(parsed_file_path: Path):
 def postprocess_parsed_files_multiprocessing(
         parsed_dir_path: Path, target_dir_path: Path, n_cores: int, in_suffix:
         str, work_distribution):
-    from collections import deque, defaultdict
-    from json import dump
-    from logging import info
-    from multiprocessing import Pool
-    from subprocess import check_call
-
     info('Postprocessing parsed files (multiprocessing) ... ')
     # TODO: consistency, parsing vs. parsed files.
-
-    # parsed_directories = (parsed_dir_path.joinpath(ecli).glob('*' + in_suffix) for ecli in work_distribution)
 
     with Pool(processes=n_cores) as pool:
         futures = deque()
 
-        # for parsed_directory in parsed_directories:
         for parsed_file_path in parsed_dir_path.glob('*/*.xml'):
             if parsed_file_path.is_file() and parsed_file_path.stat(
             ).st_size != 0:
@@ -96,7 +98,8 @@ def postprocess_parsed_files_multiprocessing(
                         args=(parsed_file_path, )))
             else:
                 raise RuntimeError(
-                    "Postprocessed parsed file at '{parsed_file_path}' is not a file or has zero size. ".format(
+                    "Postprocessed parsed file at '{parsed_file_path}' is '"
+                    "'not a file or has zero size. ".format(
                         parsed_file_path=parsed_file_path))
 
         pool.close()
@@ -105,11 +108,10 @@ def postprocess_parsed_files_multiprocessing(
         for future in futures:
             val = future.get()
             # TODO: val redundant...
-            # info(str(val))
-            # from sys import exit
-            # exit(3)
+
             ecli, sentence_index, sentence_type = val
-            if sentence_type is not SentenceType.irrelevant:  # TODO: efficiency
+            # TODO: efficiency
+            if sentence_type is not SentenceType.irrelevant:
                 postprocessing_dict[ecli][sentence_index] = sentence_type.value
 
         with target_dir_path.joinpath('sentence_types.json').open(
@@ -133,19 +135,22 @@ def postprocess_parsed_files_multiprocessing(
             for sentence_index in sentence_indices:
                 sentence_type = sentences[sentence_index]
 
-                if document_label is None and sentence_type != SentenceType.predictive_text:
-                    document_label = 0 if sentence_type == SentenceType.upheld else 1
+                if document_label is None and sentence_type != \
+                        SentenceType.predictive_text:
+                    document_label = 0 if sentence_type == \
+                                          SentenceType.upheld else 1
                     # TODO: only search at end
                 else:
                     new_sentence_indices.append(sentence_index)
 
             if document_label is not None:
-                document_file_path = target_dir_path. \
-                    joinpath('{document_label:d}'.format(document_label=document_label)). \
-                    joinpath(ecli). \
-                    with_suffix('.doc')
+                document_file_path = target_dir_path.joinpath(
+                    '{document_label:d}'.format(
+                        document_label=document_label)).joinpath(
+                            ecli).with_suffix('.doc')
                 input_document_file_path = Path(
-                    '/srv/data/legal_nlp_pipeline_1/11-6-2015/2_tokenized/{ecli:s}.txt.tok'.format(
+                    '/srv/data/legal_nlp_pipeline_1/11-6-2015/2_tokenized/{'
+                    'ecli:s}.txt.tok'.format(
                         document_label=document_label, ecli=ecli))  # TODO:
                 with document_file_path.open(
                         mode='wt', encoding=ENCODING) as output_document_file:
@@ -165,9 +170,3 @@ def postprocess_parsed_files_multiprocessing(
 
     info("Performed postprocessing to '{target_dir_path}'. ".format(
         target_dir_path=target_dir_path))
-
-# TODO:
-# normalize(tree):
-#     for elem in tree:
-#         if type is not mwp:
-#             yield text

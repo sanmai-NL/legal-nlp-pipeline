@@ -1,7 +1,16 @@
-from lxml.etree import XPath
+from json import dump
+from logging import error
+from logging import info
+from os import mkdir
 from pathlib import Path
 
-# SENTENCE_XPATH = XPath("/alpino_ds/comments[1]/comment[1]")  # TODO: does not work in Alpino server mode??
+from lxml.etree import parse
+from lxml.etree import XPath
+from networkx import DiGraph
+from networkx.readwrite import json_graph
+
+#  TODO: does not work in Alpino server mode??
+# SENTENCE_XPATH = XPath("/alpino_ds/comments[1]/comment[1]")
 SENTENCE_XPATH = XPath(
     "/alpino_ds/sentence[1]")  # TODO: does not work in Alpino server mode??
 XML_NODES = XPath("/alpino_ds//node[node]/node")
@@ -9,14 +18,6 @@ XML_NODES = XPath("/alpino_ds//node[node]/node")
 
 def render_trees(parsed_dir_path: Path, target_dir_path: Path,
                  work_distribution: list):
-    from json import dump
-    from logging import error, info
-    from lxml.etree import parse
-    from networkx import DiGraph
-    from networkx.readwrite import json_graph
-    # from networkx import draw, draw_spring
-    from os import mkdir
-
     for ecli in work_distribution:
         parsed_files_glob = parsed_dir_path.joinpath(ecli).glob('*.xml')
 
@@ -65,6 +66,6 @@ def render_trees(parsed_dir_path: Path, target_dir_path: Path,
                     info("Rendered parse tree to '{json_file_path}'. ".format(
                         json_file_path=json_file_path))
             else:
-                error(
-                    "Empty or non-existent XML parse tree file at '{parsed_file_path}'. ".format(
-                        parsed_file_path=parsed_file_path))
+                error("Empty or non-existent XML parse tree file at "
+                      "'{parsed_file_path}'. ".format(
+                          parsed_file_path=parsed_file_path))

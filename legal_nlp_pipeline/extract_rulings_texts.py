@@ -1,7 +1,8 @@
 # from collections import Iterable
 from pathlib import Path
 
-from legal_nlp_pipeline.extract_rulings_texts_wraking import WIJZERS, clean
+from legal_nlp_pipeline.extract_rulings_texts_wraking import clean
+from legal_nlp_pipeline.extract_rulings_texts_wraking import WIJZERS
 from legal_nlp_pipeline.fetch_xml_rulings import NAMESPACE_PREFIX_MAP
 
 ENCODING = 'utf-8'
