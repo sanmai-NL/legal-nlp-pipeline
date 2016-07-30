@@ -58,17 +58,20 @@ def postprocess_parsed_file_directly(parsed_file_path: Path):
         except:
             raise
         else:
-            debug("Postprocessed parsed file {parsed_file_path}. ".format(parsed_file_path=parsed_file_path))
+            debug("Postprocessed parsed file {parsed_file_path}. ".format(
+                parsed_file_path=parsed_file_path))
             return ecli, sentence_index, sentence_type
     else:
-        warning("Skipping parsed file to be postprocessed at '{parsed_file_path}'. ".
-                format(parsed_file_path=parsed_file_path))
-
+        warning(
+            "Skipping parsed file to be postprocessed at '{parsed_file_path}'. ".format(
+                parsed_file_path=parsed_file_path))
 
 # TODO: reject rulings without any verdict
 
-def postprocess_parsed_files_multiprocessing(parsed_dir_path: Path, target_dir_path: Path,
-                                             n_cores: int, in_suffix: str, work_distribution):
+
+def postprocess_parsed_files_multiprocessing(
+        parsed_dir_path: Path, target_dir_path: Path, n_cores: int, in_suffix:
+        str, work_distribution):
     from collections import deque, defaultdict
     from json import dump
     from logging import info
@@ -85,12 +88,16 @@ def postprocess_parsed_files_multiprocessing(parsed_dir_path: Path, target_dir_p
 
         # for parsed_directory in parsed_directories:
         for parsed_file_path in parsed_dir_path.glob('*/*.xml'):
-            if parsed_file_path.is_file() and parsed_file_path.stat().st_size != 0:
-                futures.append(pool.apply_async(func=postprocess_parsed_file_directly,
-                                                args=(parsed_file_path,)))
+            if parsed_file_path.is_file() and parsed_file_path.stat(
+            ).st_size != 0:
+                futures.append(
+                    pool.apply_async(
+                        func=postprocess_parsed_file_directly,
+                        args=(parsed_file_path, )))
             else:
-                raise RuntimeError("Postprocessed parsed file at '{parsed_file_path}' is not a file or has zero size. ".
-                                   format(parsed_file_path=parsed_file_path))
+                raise RuntimeError(
+                    "Postprocessed parsed file at '{parsed_file_path}' is not a file or has zero size. ".format(
+                        parsed_file_path=parsed_file_path))
 
         pool.close()
 
@@ -105,8 +112,13 @@ def postprocess_parsed_files_multiprocessing(parsed_dir_path: Path, target_dir_p
             if sentence_type is not SentenceType.irrelevant:  # TODO: efficiency
                 postprocessing_dict[ecli][sentence_index] = sentence_type.value
 
-        with target_dir_path.joinpath('sentence_types.json').open(mode='wt', encoding="ascii") as json_file:
-            dump(dict(postprocessing_dict), json_file, sort_keys=True, indent=True)
+        with target_dir_path.joinpath('sentence_types.json').open(
+                mode='wt', encoding="ascii") as json_file:
+            dump(
+                dict(postprocessing_dict),
+                json_file,
+                sort_keys=True,
+                indent=True)
 
         try:
             target_dir_path.joinpath('0').mkdir()
@@ -135,15 +147,24 @@ def postprocess_parsed_files_multiprocessing(parsed_dir_path: Path, target_dir_p
                 input_document_file_path = Path(
                     '/srv/data/legal_nlp_pipeline_1/11-6-2015/2_tokenized/{ecli:s}.txt.tok'.format(
                         document_label=document_label, ecli=ecli))  # TODO:
-                with document_file_path.open(mode='wt', encoding=ENCODING) as output_document_file:
-                    with input_document_file_path.open(mode='rt', encoding=ENCODING) as input_document_file:
+                with document_file_path.open(
+                        mode='wt', encoding=ENCODING) as output_document_file:
+                    with input_document_file_path.open(
+                            mode='rt',
+                            encoding=ENCODING) as input_document_file:
                         lines_expr = ''
                         for new_sentence_index in new_sentence_indices:
                             lines_expr += '{0:d}p;'.format(new_sentence_index)
 
-                        check_call(('sed', '-n', lines_expr,), stdin=input_document_file, stdout=output_document_file)
+                        check_call(
+                            ('sed',
+                             '-n',
+                             lines_expr, ),
+                            stdin=input_document_file,
+                            stdout=output_document_file)
 
-    info("Performed postprocessing to '{target_dir_path}'. ".format(target_dir_path=target_dir_path))
+    info("Performed postprocessing to '{target_dir_path}'. ".format(
+        target_dir_path=target_dir_path))
 
 # TODO:
 # normalize(tree):

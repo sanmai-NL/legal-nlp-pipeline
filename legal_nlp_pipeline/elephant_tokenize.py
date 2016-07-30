@@ -1,5 +1,6 @@
 from pathlib import Path
 
+
 def elephant_tokenize_text_files_directly(labeled, out, iob=False):
     if iob:
         for ch, label in labeled:
@@ -26,10 +27,13 @@ def elephant_tokenize_text_file_directly(elephant_dir_path: Path):
     from elephant import check_model_type, label, output_labels_as_string
     from logging import info, debug
 
-    info("Elephant directory path '{elephant_dir_path}'. ".format(elephant_dir_path=elephant_dir_path))
+    info("Elephant directory path '{elephant_dir_path}'. ".format(
+        elephant_dir_path=elephant_dir_path))
 
-    model_dir_path = str(elephant_dir_path.joinpath('models', 'dutch').resolve())
-    info('Elephant models directory path = "{model_dir_path}". '.format(model_dir_path=model_dir_path))
+    model_dir_path = str(
+        elephant_dir_path.joinpath('models', 'dutch').resolve())
+    info('Elephant models directory path = "{model_dir_path}". '.format(
+        model_dir_path=model_dir_path))
 
     wapiti_model, elman_model, vocab_model = check_model_type(model_dir_path)
 
