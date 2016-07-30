@@ -4,6 +4,7 @@ from pathlib import Path
 from legal_nlp_pipeline.extract_rulings_texts_wraking import WIJZERS, clean
 from legal_nlp_pipeline.fetch_xml_rulings import NAMESPACE_PREFIX_MAP
 
+ENCODING = 'utf-8'
 
 # ALPINO_SPECIAL_CHARS includes [], which coincides with the censored named entity marking [...] in the original data.
 
@@ -19,10 +20,10 @@ def select_tokenized_files(tokenized_files_dir_path: Path, target_dir_path: Path
     for tokenized_file_path in tokenized_files:
         selected_file_path = target_dir_path.joinpath(tokenized_file_path.name).with_suffix('.sel')
         if not selected_file_path.exists() or selected_file_path.stat().st_size == 0:
-            with tokenized_file_path.open(mode='rt') as tokenized_file:
-                with selected_file_path.open(mode='wt') as selected_file:
+            with tokenized_file_path.open(mode='rt', encoding=ENCODING) as tokenized_file:
+                with selected_file_path.open(mode='wt', encoding=ENCODING) as selected_file:
                     # TODO: preselection? select_sentences_with_wraking_party_mentions
-                    selected_file.write(tokenized_file.read())
+                    selected_file.write(tokenized_file.read(), encoding=ENCODING)
                     info("Selected to '{selected_file_path}'.".format(
                         selected_file_path=selected_file_path))
 
@@ -195,16 +196,16 @@ def extract_composite_rulings(xml_ruling_files, target_dir_path: Path):
             target_file_path = target_dir_path.joinpath(ruling_file_path.name)
             # symlink(ruling_file_path, target_file_path)
 
-            with target_file_path.with_suffix('.tlg.txt').open(mode='wt') as target_file:
+            with target_file_path.with_suffix('.tlg.txt').open(mode='wt', encoding=ENCODING) as target_file:
                 target_file.write(tenlastelegging)
 
-            with target_file_path.with_suffix('.adv.txt').open(mode='wt') as target_file:
+            with target_file_path.with_suffix('.adv.txt').open(mode='wt', encoding=ENCODING) as target_file:
                 target_file.write(standpunt_adv)
 
-            with target_file_path.with_suffix('.ovj.txt').open(mode='wt') as target_file:
+            with target_file_path.with_suffix('.ovj.txt').open(mode='wt', encoding=ENCODING) as target_file:
                 target_file.write(standpunt_ovj)
 
-            with target_file_path.with_suffix('.bsl.txt').open(mode='wt') as target_file:
+            with target_file_path.with_suffix('.bsl.txt').open(mode='wt', encoding=ENCODING) as target_file:
                 target_file.write(beslissing)
                 # 1
         else:

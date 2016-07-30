@@ -4,6 +4,9 @@ from enum import IntEnum
 # from itertools import count
 # _enumcount = count()
 
+ENCODING = 'utf-8'
+
+
 class SentenceType(IntEnum):
     irrelevant = 0
     refused = 1
@@ -102,7 +105,7 @@ def postprocess_parsed_files_multiprocessing(parsed_dir_path: Path, target_dir_p
             if sentence_type is not SentenceType.irrelevant:  # TODO: efficiency
                 postprocessing_dict[ecli][sentence_index] = sentence_type.value
 
-        with target_dir_path.joinpath('sentence_types.json').open(mode='wt') as json_file:
+        with target_dir_path.joinpath('sentence_types.json').open(mode='wt', encoding="ascii") as json_file:
             dump(dict(postprocessing_dict), json_file, sort_keys=True, indent=True)
 
         try:
@@ -132,8 +135,8 @@ def postprocess_parsed_files_multiprocessing(parsed_dir_path: Path, target_dir_p
                 input_document_file_path = Path(
                     '/srv/data/legal_nlp_pipeline_1/11-6-2015/2_tokenized/{ecli:s}.txt.tok'.format(
                         document_label=document_label, ecli=ecli))  # TODO:
-                with document_file_path.open(mode='wt') as output_document_file:
-                    with input_document_file_path.open(mode='rt') as input_document_file:
+                with document_file_path.open(mode='wt', encoding=ENCODING) as output_document_file:
+                    with input_document_file_path.open(mode='rt', encoding=ENCODING) as input_document_file:
                         lines_expr = ''
                         for new_sentence_index in new_sentence_indices:
                             lines_expr += '{0:d}p;'.format(new_sentence_index)

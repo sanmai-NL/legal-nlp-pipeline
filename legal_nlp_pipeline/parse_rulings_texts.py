@@ -1,7 +1,11 @@
 from pathlib import Path
 from os import getenv
 
+ENCODING = 'utf-8'
+
 # TODO use configuration file
+from subprocess import CalledProcessError
+
 ALPINO_HOME = getenv('ALPINO_HOME')
 alpino_home_dir_path = Path(ALPINO_HOME)
 # ALPINO_EXECUTABLE = 'bin/Alpino'  # relative to ALPINO_HOME
@@ -219,7 +223,7 @@ def alpino_parse_tokenized_files_socket(tokenized_files_dir_path: Path, target_d
 
 
 def alpino_parse_tokenized_file_directly(tokenized_file_path: Path, target_dir_path: Path, cpu_core: str):
-    from logging import info, warning
+    from logging import info, warning, error
     from os import remove
     from subprocess import check_call
 
@@ -231,18 +235,22 @@ def alpino_parse_tokenized_file_directly(tokenized_file_path: Path, target_dir_p
                    'assume_input_is_tokenized=on', 'demo=off', 'current_ref=1', 'pos_tagger=on', 'user_max=190000',
                    'xml_format_frame=on', 'end_hook=xml', '-flag', 'treebank', str(parsed_sentences_files_dir_path),
                    '-parse')
-        try:
-            with tokenized_file_path.open(mode='rb') as text_file:
-                check_call(command, stdin=text_file, env=ALPINO_ENV, cwd=ALPINO_HOME)  # stdout=DEVNULL
+        with tokenized_file_path.open(mode='rb') as tokenized_file:
+            try:
+                check_call(command, stdin=tokenized_file, stderr=None, stdout=None, env=ALPINO_ENV,
+                           cwd=ALPINO_HOME)  # stdout=DEVNULL
                 # TODO: check whether Alpino will overwrite (zero size) parsed sentence files?
-        except:
-            raise
-        else:
-            info("Parsed tokenized file to '{parsed_sentence_file_path_prefix}'.*.xml . ".
-                 format(parsed_sentence_file_path_prefix=parsed_sentence_file_path_prefix))
-        finally:
-            lock_file_path = parsed_sentences_files_dir_path.with_suffix('.lock')
-            remove(str(lock_file_path))
+            except CalledProcessError:
+                error("Could not parse tokenized file '{tokenized_file_path}'. ".
+                      format(tokenized_file_path=tokenized_file_path))
+                raise
+            else:
+                info("Parsed tokenized file to '{parsed_sentence_file_path_prefix}'.*.xml . ".
+                     format(parsed_sentence_file_path_prefix=parsed_sentence_file_path_prefix))
+            finally:
+                # TODO: lock removed at right time?
+                lock_file_path = parsed_sentences_files_dir_path.with_suffix('.lock')
+                remove(str(lock_file_path))
     else:
         warning("Skipping tokenized file to be parsed at '{tokenized_file_path}'. ".
                 format(tokenized_file_path=tokenized_file_path))

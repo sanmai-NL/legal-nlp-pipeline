@@ -4,6 +4,9 @@ from regex import compile, MULTILINE, IGNORECASE
 
 from legal_nlp_pipeline.fetch_xml_rulings import NAMESPACE_PREFIX_MAP
 
+
+ENCODING = 'utf-8'
+
 ALPINO_SPECIAL_CHAR_PERCENT = compile(pattern=r'%+', flags=MULTILINE)
 ALPINO_SPECIAL_CHARS = compile(pattern=r'[\|\[\]]+')
 DASH_LIKES = compile(pattern=r'[–—]+', flags=MULTILINE)  # TODO: \p{Dash_Punctuation}
@@ -128,7 +131,7 @@ def extract_wraking_texts(xml_rulings_dir_path: Path, target_dir_path: Path, out
                 # xml_ruling_file_path == 'docs/ECLI:NL:RBOBR:2013:5003.xml' and beslissing is None
                 if text is not None:
                     # symlink(xml_ruling_file_path, target_file_path)
-                    with text_file_path.open(mode='wt') as text_file:
+                    with text_file_path.open(mode='wt', encoding=ENCODING) as text_file:
                         text_file.write(text)
                 status = 'OK' if text is not None else '--'
                 info("Extracted wraking text to '{text_file_path}' => txt: {status:s}".

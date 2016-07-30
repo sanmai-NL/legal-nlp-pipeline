@@ -23,7 +23,7 @@ if not (MIN_REQUIRED_PYTHON_VERSION <= basic_version_info <= MAX_REQUIRED_PYTHON
             max_required_python_version=MAX_REQUIRED_PYTHON_VERSION))
 
 install_requirements = ['networkx', 'lxml', 'regex==2015.06.10']
-setup_requirements = ['cython']  # TODO: ensure that cython is installed before lxml
+# setup_requirements = ['cython'] # TODO: ensure that cython is installed before lxml
 
 setup(classifiers=('Natural Language :: English', 'Programming Language :: Python', 'Topic :: Text Processing',
                    'Topic :: Scientific/Engineering',),
@@ -37,7 +37,7 @@ setup(classifiers=('Natural Language :: English', 'Programming Language :: Pytho
       name='legal-nlp-pipeline',
       packages=('legal_nlp_pipeline',),
       scripts=('bin/legal_nlp_pipeline.sh',),
-      setup_requires=setup_requirements,
+      setup_requires=(),
       url='about:blank',
       version=__version__,
       zip_safe=True

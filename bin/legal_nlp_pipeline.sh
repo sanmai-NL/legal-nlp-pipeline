@@ -3,13 +3,6 @@
 base_port_number=42424 ;
 save_traps=$(trap)
 
-ALPINO_HOME='/opt/Alpino/Alpino/' export ALPINO_HOME
-PATH="${PATH}:${ALPINO_HOME}/bin/" export PATH
-
-produce_html_documentation() {
-    pandoc --toc -f markdown_github --highlight-style=pygments -s "${VIRTUAL_ENV:-dev/null}/share/README.md"
-}
-
 inventorize_parsings() {
     printf '%d rulings, spanning %d sentences.\n' \
         $(find "$1" -mindepth 0 -maxdepth 1 -type d -name 'ECLI*' 2> /dev/null | wc -l) $(find "$1" -mindepth 1 -type f -name '*.xml' 2> /dev/null | wc -l)

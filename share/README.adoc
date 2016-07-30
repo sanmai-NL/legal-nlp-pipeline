@@ -74,7 +74,7 @@ Create the base directory for the data set.
 
 [source,Sh]
 ----
-sudo mkdir -p -m 'ug=srwx,o=rx' '/srv/data/legal_nlp_pipeline_1/'
+sudo mkdir -p -m 'ug=srwx,o=rx' "${data_dir_path}"
 ----
 
 Create the virtual environment for `legal-nlp-pipeline`.
@@ -139,6 +139,7 @@ Edit the configuration file:
 sudo mkdir "${venv_base_dir_path}/etc/"
 ----
 
+[source,subs="verbatim,attributes"]
 ."${venv_base_dir_path}/etc/pipeline.args"
 ----
 pipeline

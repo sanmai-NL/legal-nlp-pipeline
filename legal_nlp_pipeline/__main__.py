@@ -1,12 +1,17 @@
 # from collections import Iterable
 # from lxml.etree import XPath
 from argparse import ArgumentParser
+from itertools import chain
 from logging import basicConfig, info, warning, INFO
 from os import getpid
 from pathlib import Path
 from stat import S_ISGID, S_IRUSR, S_IWUSR, S_IXUSR, S_IRGRP, S_IXGRP, S_IROTH, S_IXOTH
 
+from legal_nlp_pipeline.alpino_tokenize import alpino_tokenize_text_files
+from legal_nlp_pipeline.extract_rulings_texts_wraking import extract_wraking_texts
 from legal_nlp_pipeline.fetch_xml_rulings import fetch_and_process_eclis
+from legal_nlp_pipeline.parse_rulings_texts import alpino_parse_tokenized_files_directly_multiprocessing
+from legal_nlp_pipeline.postprocess_parsings import postprocess_parsed_files_multiprocessing
 
 DIRECTORY_PERMISSIONS = S_ISGID | S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH
 # TODO: move into module
@@ -54,8 +59,7 @@ def distribute_work(args):
 
 def pipeline(args):
     from collections import namedtuple
-    # from legal_nlp_pipeline.extract_rulings_texts import select_tokenized_files
-    # from legal_nlp_pipeline.tempdir import TempDir
+    from multiprocessing import cpu_count
     from logging import info, warning
     from json import load
     from socket import gethostname
@@ -112,51 +116,53 @@ def pipeline(args):
                         prefix=subdir_path.parent,
                         temp_base_dir_path=output_dir_path))
 
-            # text_files_suffix = '.txt'
-            # extract_wraking_texts(xml_rulings_dir_path=args.xml_rulings_dir_path,
-            #                      work_distribution=work_distribution,
-            #                      target_dir_path=subdir_paths.extracted_dir_path,
-            #                      out_suffix=text_files_suffix)
+        text_files_suffix = '.txt'
+        extract_wraking_texts(xml_rulings_dir_path=args.xml_rulings_dir_path,
+                              work_distribution=work_distribution,
+                              target_dir_path=subdir_paths.extracted_dir_path,
+                              out_suffix=text_files_suffix)
 
-            # tokenized_files_suffix = text_files_suffix + '.tok'
-            # alpino_tokenize_text_files(extracted_dir_path=subdir_paths.extracted_dir_path,
-            #                           target_dir_path=subdir_paths.tokenized_dir_path,
-            #                           work_distribution=work_distribution,
-            #                           in_suffix=text_files_suffix,
-            #                           out_suffix=tokenized_files_suffix)
-            #
-            # # select_tokenized_files(tokenized_dir_path=subdir_paths.tokenized_dir_path,
-            # #                        target_dir_path=subdir_paths.selected_dir_path,
-            # #                        work_distribution=work_distribution)
-            #
-            # # selected_tokenized_files = iglob(join(selected_dir_path, '*.sel'))
+        tokenized_files_suffix = text_files_suffix + '.tok'
+        alpino_tokenize_text_files(extracted_dir_path=subdir_paths.extracted_dir_path,
+                                   target_dir_path=subdir_paths.tokenized_dir_path,
+                                   work_distribution=work_distribution,
+                                   in_suffix=text_files_suffix,
+                                   out_suffix=tokenized_files_suffix)
 
-            # alpino_parse_tokenized_files_directly_multiprocessing(tokenized_dir_path=subdir_paths.tokenized_dir_path,
-            #                                                      target_dir_path=subdir_paths.parsed_dir_path,
-            #                                                      n_cores=n_cores,
-            #                                                      work_distribution=work_distribution,
-            #                                                      in_suffix=tokenized_files_suffix)
+        # select_tokenized_files(tokenized_dir_path=subdir_paths.tokenized_dir_path,
+        #                        target_dir_path=subdir_paths.selected_dir_path,
+        #                        work_distribution=work_distribution)
 
-            # xml_parse_tree_files = iglob(join(parsed_dir_path, '*/*.xml'))
-            # render_trees(parsed_dir_path=parsed_dir_path,
-            #             target_dir_path=trees_dir_path,
-            #             work_distribution=work_distribution)
-            # tokenized_files = (join(tokenized_dir_path, ecli, '.xml') for ecli in work_distribution)
+        # selected_tokenized_files = iglob(join(selected_dir_path, '*.sel'))
 
-            # def get_total_work_distribution():
-            #     for json_file_path in output_dir_path.glob('legal*.json'):
-            #         with json_file_path.open(mode='rt') as json_file:
-            #             a_work_distribution = load(json_file)
-            #             yield a_work_distribution
-            #
-            # total_work_distribution = \
-            #     chain.from_iterable(a_work_distribution for a_work_distribution in get_total_work_distribution())
-            #
-            # postprocess_parsed_files_multiprocessing(parsed_dir_path=subdir_paths.parsed_dir_path,
-            #                                          target_dir_path=subdir_paths.postprocessed_dir_path,
-            #                                          work_distribution=total_work_distribution,
-            #                                          n_cores=n_cores,
-            #                                          in_suffix='.xml')
+        n_cores = cpu_count()
+
+        alpino_parse_tokenized_files_directly_multiprocessing(tokenized_dir_path=subdir_paths.tokenized_dir_path,
+                                                              target_dir_path=subdir_paths.parsed_dir_path,
+                                                              n_cores=n_cores,
+                                                              work_distribution=work_distribution,
+                                                              in_suffix=tokenized_files_suffix)
+
+        # xml_parse_tree_files = iglob(join(parsed_dir_path, '*/*.xml'))
+        # render_trees(parsed_dir_path=parsed_dir_path,
+        #              target_dir_path=trees_dir_path,
+        #              work_distribution=work_distribution)
+        # tokenized_files = (join(tokenized_dir_path, ecli, '.xml') for ecli in work_distribution)
+
+        def get_total_work_distribution():
+            for json_file_path in output_dir_path.glob('legal*.json'):
+                with json_file_path.open(mode='rt') as json_file:
+                    a_work_distribution = load(json_file)
+                    yield a_work_distribution
+
+        total_work_distribution = \
+            chain.from_iterable(a_work_distribution for a_work_distribution in get_total_work_distribution())
+
+        postprocess_parsed_files_multiprocessing(parsed_dir_path=subdir_paths.parsed_dir_path,
+                                                 target_dir_path=subdir_paths.postprocessed_dir_path,
+                                                 work_distribution=total_work_distribution,
+                                                 n_cores=n_cores,
+                                                 in_suffix='.xml')
 
 
 if __name__ == '__main__':
